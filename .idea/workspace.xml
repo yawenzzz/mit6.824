@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="b3f45998-f072-4da9-a481-f2ea2a43b17a" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/src/mr/master.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mr/master.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mr/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mr/worker.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/crash.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/crash.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/indexer.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/indexer.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/mtiming.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/mtiming.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/nocrash.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/nocrash.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/rtiming.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/rtiming.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mrapps/wc.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/wc.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/config.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="GOROOT" url="file:///usr/local/go" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="2UF8NbIvWCRTEfSR2i62yuEpyx0" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "RunOnceActivity.go.modules.automatic.dependencies.download": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "configurable.GoLibrariesConfigurable.is.expanded": "true",
+    "git-widget-placeholder": "lab1",
+    "go.import.settings.migrated": "true",
+    "go.sdk.automatically.set": "true",
+    "last_opened_file_path": "/Users/yawenzheng/6.824",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "vcs.Git"
+  }
+}]]></component>
+  <component name="RunManager" selected="Go 构建.go run mrmaster">
+    <configuration name="go build mrsequential.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true">
+      <module name="6.824" />
+      <working_directory value="$PROJECT_DIR$/src/main" />
+      <go_parameters value="-race" />
+      <parameters value="wc.so pg-frankenstein.txt pg-tom_sawyer.txt pg-grimm.txt pg-huckleberry_finn.txt pg-being_ernest.txt pg-metamorphosis.txt pg-dorian_gray.txt pg-sherlock_holmes.txt" />
+      <kind value="FILE" />
+      <package value="6.824" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/src/main/mrsequential.go" />
+      <method v="2">
+        <option name="GoBeforeRunTask" command="build -race  -buildmode=plugin  ../mrapps/wc.go" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Go 构建.go run mrworker" />
+      <item itemvalue="Go 构建.go run mrmaster" />
+      <item itemvalue="Go 构建.go build mrsequential.go" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go 构建.go build mrsequential.go" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+  </component>
+  <component name="VgoProject">
+    <settings-migrated>true</settings-migrated>
+  </component>
+</project>

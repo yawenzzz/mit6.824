@@ -5,15 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b3f45998-f072-4da9-a481-f2ea2a43b17a" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/src/mr/master.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mr/master.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mr/worker.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mr/worker.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/crash.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/crash.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/indexer.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/indexer.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/mtiming.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/mtiming.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/nocrash.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/nocrash.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/rtiming.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/rtiming.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mrapps/wc.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/mrapps/wc.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/raft/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/config.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/labrpc/labrpc.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/labrpc/labrpc.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/raft/raft.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/raft/raft.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,7 +44,7 @@
     "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
     "WebServerToolWindowFactoryState": "false",
     "configurable.GoLibrariesConfigurable.is.expanded": "true",
-    "git-widget-placeholder": "lab1",
+    "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
     "last_opened_file_path": "/Users/yawenzheng/6.824",

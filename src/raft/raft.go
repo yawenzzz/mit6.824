@@ -18,6 +18,7 @@ package raft
 //
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -72,6 +73,7 @@ type Raft struct {
 	// 消息通道
 	ReceiveHeartBeat chan bool
 	VoteDone         chan bool
+	IsLeader         chan bool
 }
 
 type State int
@@ -182,11 +184,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// 剩下的情况可以投票
 	rf.currentTerm = args.Term
 	rf.votedFor = args.CandidateId
-	rf.State = Follower
-	rf.VoteDone <- true
-
+	// 给某个候选人投了票，自己就变成候选人
+	rf.State = Candidate
 	reply.Term = rf.currentTerm
 	reply.VoteGranted = true
+	rf.VoteDone <- true
+	fmt.Println("server ", rf.me, "投给了", rf.votedFor)
 	rf.mu.Unlock()
 }
 
@@ -227,12 +230,16 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 		}
 	}
 	rf.mu.Lock()
+	// 统计票数
 	if reply.VoteGranted {
 		*voteNum++
+		fmt.Println("收到票数，现在是", *voteNum)
 	}
 	if *voteNum > len(rf.peers)/2 {
 		*voteNum = 0
 		rf.State = Leader
+		_, isleader := rf.GetState()
+		rf.IsLeader <- isleader
 		rf.nextIndex = make([]int, len(rf.peers))
 		for idx := range rf.nextIndex {
 			rf.nextIndex[idx] = len(rf.log)
@@ -258,8 +265,6 @@ type AppendEntriesReply struct {
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
-	// 表示接受者接受到了Heartbeat
-	rf.ReceiveHeartBeat <- true
 	// 对于follower来说，如果收到的消息任期要小于自己当前的任期则拒绝添加entry
 	if args.Term < rf.currentTerm {
 		reply.Success = false
@@ -271,8 +276,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.currentTerm = args.Term
 	rf.votedFor = args.leaderId
 	rf.State = Follower
-	//rf.Ticker.Reset(rf.ElectionTimeOut)
-
+	// 表示接受者接受到了Heartbeat
+	rf.ReceiveHeartBeat <- true
 	// reply
 	reply.Term = rf.currentTerm
 	reply.Success = true
@@ -291,11 +296,6 @@ func (rf *Raft) SendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		}
 	}
 	rf.mu.Lock()
-	// 如果领导人的任期小于接收者的当前任期
-	if args.Term < rf.currentTerm {
-		rf.mu.Unlock()
-		return false
-	} else if
 	return ok
 }
 
@@ -349,49 +349,66 @@ func (rf *Raft) Loop() {
 		case Follower:
 			select {
 			case <-rf.ReceiveHeartBeat:
-				//fmt.Println("Server ", rf.me, "收到了心跳")
+				fmt.Println("Server ", rf.me, "收到了心跳")
 			case <-rf.VoteDone:
-				//fmt.Println("Server ", rf.me, "完成了投票")
+				fmt.Println("Server ", rf.me, "完成了投票")
 			case <-time.After(HeartBeatTime):
-				//fmt.Println("Server ", rf.me, "变成candidate了")
+				fmt.Println("Server ", rf.me, "变成candidate了")
 				rf.State = Candidate
 			}
 		case Candidate:
 			// 如果是candidate就设置选举超时时间, 每一轮重新设置
+			// 自增当前的任期号（currentTerm）
+			currentTerm := rf.currentTerm
 			rf.ElectionTimeOut = time.Duration(rand.Intn(180)+180) * time.Millisecond
+			// 给自己投票
 			rf.votedFor = rf.me
 			// 统计选票的数量
 			voteNum := 1
-			args := RequestVoteArgs{
-				Term:         rf.currentTerm + 1, // 任期加一
-				CandidateId:  rf.me,
-				LastLogIndex: len(rf.log) - 1,            // 上一个Index
-				LastLogTerm:  rf.log[len(rf.log)-1].Term, // 上一个任期
-			}
 			for name := range rf.peers {
 				if name == rf.me {
 					continue
 				}
+				args := &RequestVoteArgs{
+					Term:         currentTerm,
+					CandidateId:  rf.me,
+					LastLogIndex: len(rf.log) - 1,            // 上一个Index
+					LastLogTerm:  rf.log[len(rf.log)-1].Term, // 上一个任期
+				}
 				reply := new(RequestVoteReply)
-				go rf.sendRequestVote(name, &args, reply, &voteNum)
+				// 发送请求投票的 RPC 给其他所有服务器
+				go rf.sendRequestVote(name, args, reply, &voteNum)
+			}
+			// 进入非阻塞状态，如果在选举期间内接受到了心跳，则自动成为Follower
+			// 如果选举超时，重新选举
+			select {
+			case <-rf.ReceiveHeartBeat:
+				rf.State = Follower
+			case <-rf.IsLeader:
+				fmt.Println("选举出了Leader，Leader是", rf.me)
+				//break
+			case <-time.After(50 * rf.ElectionTimeOut):
+				fmt.Println("server ", rf.me, "时间： ", 50*rf.ElectionTimeOut, "选举超时，重新选举")
+				// 等待超时的时间
 			}
 			//time.Sleep(rf.ElectionTimeOut)
 		case Leader:
 			rf.Ticker = time.NewTicker(HeartBeatTime)
+			// 定时发送heartbeat
 			select {
 			case <-rf.Ticker.C:
-				args := AppendEntriesArgs{
-					Term:         rf.currentTerm,
-					leaderId:     rf.me,
-					PrevLogIndex: len(rf.log) - 1,
-					PrevLogTerm:  rf.log[len(rf.log)-1].Term,
-					Entries:      nil,
-					LeaderCommit: rf.commitIndex,
-				}
 				//fmt.Println("Term: ", rf.currentTerm)
 				for name := range rf.peers {
 					if name == rf.me {
 						continue
+					}
+					args := AppendEntriesArgs{
+						Term:         rf.currentTerm,
+						leaderId:     rf.me,
+						PrevLogIndex: len(rf.log) - 1,
+						PrevLogTerm:  rf.log[len(rf.log)-1].Term,
+						Entries:      nil,
+						LeaderCommit: rf.commitIndex,
 					}
 					reply := new(AppendEntriesReply)
 					go rf.SendAppendEntries(name, &args, reply)
@@ -432,6 +449,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.State = Follower
 	rf.ReceiveHeartBeat = make(chan bool, 10)
 	rf.VoteDone = make(chan bool, 10)
+	rf.IsLeader = make(chan bool, 10)
 	//rf.ElectionTimeOut = time.Duration(rand.Intn(180)+180) * time.Millisecond
 
 	//fmt.Println(len(peers))

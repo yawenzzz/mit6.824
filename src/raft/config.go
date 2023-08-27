@@ -153,7 +153,7 @@ func (cfg *config) start1(i int) {
 	// a fresh persister, so old instance doesn't overwrite
 	// new instance's persisted state.
 	// but copy old persister's content so that we always
-	// pass Make() the last persisted state.
+	// pass Make() the last persisted statex.
 	if cfg.saved[i] != nil {
 		cfg.saved[i] = cfg.saved[i].Copy()
 	} else {

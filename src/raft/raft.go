@@ -159,7 +159,7 @@ type RequestVoteReply struct {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
-	// 如果args.term < currentTerm 返回false，不投票
+	// 如果竞选者的任期< 本节点的任期 返回false，不投票
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
@@ -178,12 +178,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		}
 	}
 	// 剩下的情况可以投票
+	reply.Term = args.Term
+	reply.VoteGranted = true
+	// 更新自己的任期
 	rf.currentTerm = args.Term
 	rf.votedFor = args.CandidateId
+	// 投完票之后变成Follower
 	rf.State = Follower
-	reply.Term = rf.currentTerm
-	reply.VoteGranted = true
-	//fmt.Println("server ", rf.me, "投给了", rf.votedFor)
 	rf.mu.Unlock()
 }
 
@@ -228,8 +229,10 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	if reply.VoteGranted {
 		*voteNum++
 	}
-	if *voteNum > len(rf.peers)/2 {
+	// go协程判断是否满足leader的条件
+	if rf.State == Candidate && *voteNum > len(rf.peers)/2 {
 		rf.IsLeader <- true
+		rf.State = Leader
 	}
 	rf.mu.Unlock()
 	return ok
@@ -237,7 +240,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 type AppendEntriesArgs struct {
 	Term         int // leader的term
-	leaderId     int // follower可以重定向客户
+	LeaderId     int // follower可以重定向客户
 	PrevLogIndex int
 	PrevLogTerm  int
 	Entries      []LogEntry // 如果是heartbeat就是空的，为了提高效率一次可以多发送几个
@@ -256,19 +259,22 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Success = false
 		reply.Term = rf.currentTerm
 		// 如果是Candidate的状态就保持
-		if rf.State == Candidate {
-			rf.State = Candidate
-		}
 		rf.mu.Unlock()
 		return
 	}
+	////在接收者日志中 如果能找到一个和prevLogIndex 以及 prevLogTerm 一样的索引和任期的日志条目 则继续执行下面的步骤 否则返回假
+	//if args.PrevLogIndex < len(rf.log)-1 {
+	//
+	//}
 
-	// 如果这个领导人的任期号（包含在此次的RPC中）不小于候选人当前的任期号，那么候选人会承认领导人合法并回到跟随者状态
-	rf.currentTerm = args.Term
-	rf.votedFor = args.leaderId
-	// 表示接受者接受到了Heartbeat，且认为这个心跳是合法的，就切换到Follower的状态
-	rf.ReceiveHeartBeat <- true
-	rf.State = Follower
+	// 如果这个leader的任期号（包含在此次的 RPC中）不小于候选人当前的任期号，那么候选人会承认领导人合法并回到跟随者状态。
+	if args.Term >= rf.currentTerm {
+		rf.ReceiveHeartBeat <- true
+		// 表示接受者接受到了Heartbeat，且认为这个心跳是合法的，就切换到Follower的状态
+		rf.State = Follower
+		rf.currentTerm = args.Term
+		rf.votedFor = args.LeaderId
+	}
 	// reply
 	reply.Term = rf.currentTerm
 	reply.Success = true
@@ -276,7 +282,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 }
 
-// 需要判断存活的服务器有多少
 func (rf *Raft) SendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	// 如果不成功则一直发送
@@ -286,9 +291,9 @@ func (rf *Raft) SendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 			break
 		}
 	}
+
 	//rf.mu.Lock()
 	//rf.mu.Unlock()
-
 	return ok
 }
 
@@ -334,7 +339,7 @@ func (rf *Raft) killed() bool {
 }
 
 // 定义心跳频率
-const HeartBeatTime = 120 * time.Millisecond
+const HeartBeatTime = 150 * time.Millisecond
 
 func (rf *Raft) Loop() {
 	for rf.killed() == false {
@@ -342,6 +347,7 @@ func (rf *Raft) Loop() {
 		case Follower:
 			select {
 			case <-rf.ReceiveHeartBeat:
+				break
 				//fmt.Println("Server ", rf.me, "收到了心跳")
 			case <-time.After(HeartBeatTime):
 				//fmt.Println("Server ", rf.me, "变成candidate了")
@@ -349,19 +355,20 @@ func (rf *Raft) Loop() {
 			}
 		case Candidate:
 			// 如果是candidate就设置选举超时时间, 每一轮重新设置
-			rf.ElectionTimeOut = time.Duration(rand.Intn(150)+200) * time.Millisecond
+			rf.ElectionTimeOut = time.Duration(rand.Intn(150)+300) * time.Millisecond
 			// 自增当前的任期号（currentTerm）
-			currentTerm := rf.currentTerm + 1
+			rf.currentTerm++
 			// 给自己投票
 			rf.votedFor = rf.me
 			// 统计选票的数量
 			voteNum := 1
+
 			for name := range rf.peers {
 				if name == rf.me {
 					continue
 				}
 				args := &RequestVoteArgs{
-					Term:         currentTerm,
+					Term:         rf.currentTerm,
 					CandidateId:  rf.me,
 					LastLogIndex: len(rf.log) - 1,               // 上一个Index
 					LastLogTerm:  rf.log[len(rf.log)-1].LogTerm, // 上一个任期
@@ -375,25 +382,16 @@ func (rf *Raft) Loop() {
 			// 如果选举超时，重新选举
 			select {
 			case <-rf.ReceiveHeartBeat:
-				rf.mu.Lock()
-				rf.State = Follower
-				rf.mu.Unlock()
 			case <-rf.IsLeader:
-				rf.mu.Lock()
-				rf.State = Leader
-
-				rf.nextIndex = make([]int, len(rf.peers))
-				for idx := range rf.peers {
-					rf.nextIndex[idx] = len(rf.log)
-				}
-				voteNum = 0
-				rf.mu.Unlock()
-				//fmt.Println("选举出了Leader，Leader是", rf.me)
-			//case <-rf.Ticker.C:
+				// 及时清零
+				voteNum = -1
+				//rf.nextIndex = make([]int, len(rf.peers))
+				//rf.matchIndex = make([]int, len(rf.peers))
+				//for idx := range rf.peers {
+				//	rf.nextIndex[idx] = len(rf.log)
+				//}
 			case <-time.After(rf.ElectionTimeOut):
-				//fmt.Println("server ", rf.me, "时间： ", rf.ElectionTimeOut, "选举超时，重新选举")
 			}
-			//time.Sleep(rf.ElectionTimeOut)
 		case Leader:
 			// 定时发送heartbeat
 			for name := range rf.peers {
@@ -402,7 +400,7 @@ func (rf *Raft) Loop() {
 				}
 				args := AppendEntriesArgs{
 					Term:         rf.currentTerm,
-					leaderId:     rf.me,
+					LeaderId:     rf.me,
 					PrevLogIndex: len(rf.log) - 1,
 					PrevLogTerm:  rf.log[len(rf.log)-1].LogTerm,
 					Entries:      nil,

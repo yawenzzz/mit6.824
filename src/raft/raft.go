@@ -18,7 +18,9 @@ package raft
 //
 
 import (
+	"6.824/labgob"
 	"6.824/labrpc"
+	"bytes"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -105,12 +107,13 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.logs)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 }
 
 // restore previously persisted state.
@@ -120,17 +123,20 @@ func (rf *Raft) readPersist(data []byte) {
 	}
 	// Your code here (2C).
 	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	//var Term int
+	//var votedFor int
+	//var logs []LogEntry
+	//logs = append(logs, LogEntry{Term: 0})
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	if d.Decode(&rf.currentTerm) != nil ||
+		d.Decode(&rf.votedFor) != nil || d.Decode(&rf.logs) != nil {
+		panic("fail to decode raft persistant state!")
+	} else {
+		//rf.currentTerm = Term
+		//rf.votedFor = votedFor
+		//rf.logs = logs
+	}
 }
 
 // RequestVote RPC arguments structure.
@@ -165,10 +171,10 @@ type AppendEntriesArgs struct {
 // AppendEntries RPC reply structure.
 // field names must start with capital letters!
 type AppendEntriesReply struct {
-	Term        int
-	Success     bool
-	SameIdxTerm int // 用于记录接收者和leader在log上相同的位置
-	//ConflictTerm  int
+	Term          int
+	Success       bool
+	SameIdxTerm   int // 用于记录接收者和leader在log上相同的位置
+	ConflictIndex int // 用于日志回退，当Success为false时记录
 }
 
 // get the index of the last log entry.
@@ -203,6 +209,7 @@ func (rf *Raft) stepDownToFollower(term int) {
 	rf.state = Follower
 	rf.currentTerm = term
 	rf.votedFor = -1
+	rf.persist()
 	// step down if not follower, this check is needed
 	// to prevent race where state is already follower
 	if state != Follower {
@@ -244,7 +251,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	//defer rf.persist()
 
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
@@ -254,6 +260,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 
 	if args.Term > rf.currentTerm {
 		rf.stepDownToFollower(args.Term)
+		rf.persist()
 	}
 
 	reply.Term = rf.currentTerm
@@ -264,6 +271,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		//fmt.Println(rf.isLogUpToDate(args.LastLogIndex, args.LastLogTerm))
 		reply.VoteGranted = true
 		rf.votedFor = args.CandidateId
+		rf.persist()
 		rf.sendToChannel(rf.grantVoteCh, true)
 	}
 }
@@ -311,6 +319,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 	if reply.Term > rf.currentTerm {
 		rf.stepDownToFollower(args.Term)
+		rf.persist()
 		return
 	}
 
@@ -348,6 +357,7 @@ func (rf *Raft) broadcastRequestVote() {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	//defer rf.persist()
 
 	// 如果leader的任期小于自己的任期则返回false
 	if args.Term < rf.currentTerm {
@@ -370,10 +380,35 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// 如果不存在相同的日志索引和任期，则SameIdxTerm的值为-1 返回false
 	//fmt.Println("server ", rf.me, "的日志是 ", rf.log)
 	// 如果本地没有前一个日志的话，那么false
+	// lab2c 日志回退 如果接收者拒绝了接收新日志 则让当前冲突的Idx变为当前Term所在的第一个Idx，这样可以减少RPC通信的次数
 	if lastIndex < args.PrevLogIndex {
 		//fmt.Println("错误！ len(rf.log) < args.PrevLogIndex ")
 		reply.SameIdxTerm = -1
 		reply.Success = false
+
+		//// 找到当前的Term
+		//if rf.logs[lastIndex].Term != args.PrevLogTerm {
+		//	for i := lastIndex; i > 0; i-- {
+		//		if rf.logs[i].Term != rf.currentTerm {
+		//			// i+1是索引为term的第一个位置，传递更新nextIndex
+		//			reply.ConflictIndex = i + 1
+		//			break
+		//		}
+		//	}
+		//}
+
+		//fmt.Println(rf.logs)
+
+		// 寻找PrelogIndex在rf.logs当中的第一个idx
+		if args.PrevLogTerm > 0 {
+			for i := 1; i < lastIndex; i++ {
+				if rf.logs[i].Term == args.PrevLogTerm {
+					reply.ConflictIndex = i
+					break
+				}
+			}
+			reply.ConflictIndex = 1
+		}
 		return
 	}
 
@@ -394,8 +429,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		// 保留相同的日志并且添加新的日志
 		rf.logs = rf.logs[:SameIdxTerm+1]
 		rf.logs = append(rf.logs, args.Entries...)
+		rf.persist()
 		reply.Success = true
 		reply.SameIdxTerm = len(rf.logs) - 1
+	} else {
+		// 寻找PrelogIndex在rf.logs当中的第一个idx
+		if args.PrevLogTerm > 0 {
+			for i := 1; i < lastIndex; i++ {
+				if rf.logs[i].Term == args.PrevLogTerm {
+					reply.ConflictIndex = i
+					break
+				}
+			}
+			reply.ConflictIndex = 1
+		}
+
 	}
 
 	// update commit index to min(leaderCommit, lastIndex)
@@ -434,11 +482,14 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 		//fmt.Println("true", rf.matchIndex[server])
 		rf.nextIndex[server] = reply.SameIdxTerm + 1
 		rf.matchIndex[server] = reply.SameIdxTerm
+		rf.persist()
 		//DPrintf("Server [%v] matches leader!", server)
 	}
 	if reply.Success == false {
 		//fmt.Println("false", rf.nextIndex[server])
-		rf.nextIndex[server]--
+		//rf.nextIndex[server]--
+		rf.nextIndex[server] = reply.ConflictIndex
+		rf.persist()
 	}
 
 	// if there exists an N such that N > commitIndex, a majority of
@@ -508,6 +559,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	term := rf.currentTerm
 	rf.logs = append(rf.logs, LogEntry{term, command})
+	rf.persist()
 
 	return rf.getLastIndex(), term, true
 }
@@ -569,6 +621,7 @@ func (rf *Raft) convertToCandidate(fromState State) {
 	rf.state = Candidate
 	rf.currentTerm++
 	rf.votedFor = rf.me
+	rf.persist()
 	rf.voteCount = 1
 
 	rf.broadcastRequestVote()

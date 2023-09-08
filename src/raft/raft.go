@@ -18,9 +18,7 @@ package raft
 //
 
 import (
-	"6.824/labgob"
 	"6.824/labrpc"
-	"bytes"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -106,29 +104,33 @@ func (rf *Raft) GetState() (int, bool) {
 // lock must be held before calling this.
 func (rf *Raft) persist() {
 	// Your code here (2C).
-	w := new(bytes.Buffer)
-	e := labgob.NewEncoder(w)
-	if e.Encode(rf.currentTerm) != nil ||
-		e.Encode(rf.votedFor) != nil || e.Encode(rf.logs) != nil {
-		panic("failed to encode raft persistent state")
-	}
-	data := w.Bytes()
-	rf.persister.SaveRaftState(data)
+	// Example:
+	// w := new(bytes.Buffer)
+	// e := labgob.NewEncoder(w)
+	// e.Encode(rf.xxx)
+	// e.Encode(rf.yyy)
+	// data := w.Bytes()
+	// rf.persister.SaveRaftState(data)
 }
 
 // restore previously persisted state.
 func (rf *Raft) readPersist(data []byte) {
-	// bootstrap without any state?
-	if data == nil || len(data) < 1 {
+	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
 	}
 	// Your code here (2C).
-	r := bytes.NewBuffer(data)
-	d := labgob.NewDecoder(r)
-	if d.Decode(&rf.currentTerm) != nil ||
-		d.Decode(&rf.votedFor) != nil || d.Decode(&rf.logs) != nil {
-		panic("failed to decode raft persistent state")
-	}
+	// Example:
+	// r := bytes.NewBuffer(data)
+	// d := labgob.NewDecoder(r)
+	// var xxx
+	// var yyy
+	// if d.Decode(&xxx) != nil ||
+	//    d.Decode(&yyy) != nil {
+	//   error...
+	// } else {
+	//   rf.xxx = xxx
+	//   rf.yyy = yyy
+	// }
 }
 
 // RequestVote RPC arguments structure.
@@ -242,7 +244,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	defer rf.persist()
+	//defer rf.persist()
 
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
@@ -309,7 +311,6 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 	if reply.Term > rf.currentTerm {
 		rf.stepDownToFollower(args.Term)
-		rf.persist()
 		return
 	}
 
@@ -347,7 +348,6 @@ func (rf *Raft) broadcastRequestVote() {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	defer rf.persist()
 
 	// 如果leader的任期小于自己的任期则返回false
 	if args.Term < rf.currentTerm {
@@ -420,7 +420,6 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	defer rf.persist()
 
 	if rf.state != Leader || args.Term != rf.currentTerm || reply.Term < rf.currentTerm {
 		return
@@ -509,7 +508,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	term := rf.currentTerm
 	rf.logs = append(rf.logs, LogEntry{term, command})
-	rf.persist()
 
 	return rf.getLastIndex(), term, true
 }
@@ -572,7 +570,6 @@ func (rf *Raft) convertToCandidate(fromState State) {
 	rf.currentTerm++
 	rf.votedFor = rf.me
 	rf.voteCount = 1
-	rf.persist()
 
 	rf.broadcastRequestVote()
 }
@@ -651,8 +648,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.grantVoteCh = make(chan bool)
 	rf.heartbeatCh = make(chan bool)
 	rf.logs = append(rf.logs, LogEntry{Term: 0})
-
-	// initialize from state persisted before a crash
+	//
+	//// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
 	// start the background server loop

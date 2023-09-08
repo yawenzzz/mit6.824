@@ -1,0 +1,2 @@
+signal: interrupt
+FAIL	6.824/raft	0.463s
